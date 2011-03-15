@@ -24,10 +24,12 @@ DEF_RW="/dev/shm/.portage-rw"
 PMANAGER=paludis
 FS=unionfs
 
+#compression: currently available are xz, lzo, gzip
+COMPRESSION=gzip
+
 depend() {
 	use local
 }
-
 
 if $PMANAGER="paludis"; then
 	_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
@@ -38,8 +40,23 @@ else
 fi
 
 
+setup() {
+	rm "$SQFS_OLD" "$SQFS_NEW"
+	einfo "Attempting to build initial squashfs image from $PORTDIR"
+	mksquashfs $PORTDIR $SQFS_NEW -force-uid ${_UID} -force-gid ${_GID} -comp $COMP -no-recovery 2>/dev/null
+}
+
 start() {
    ebegin "Mounting read-only squashfs image"
+
+   if [ ! -f "$SQFS_CUR" ] ; then
+	if [ ! -f "$SQFS_OLD" ]; then
+		einfo "it appears you have no squashfs images yet. If you want to create initial images from $PORTDIR, run $0 setup"
+		retval=1
+		eend $retval
+	fi
+   fi
+
    mount -rt squashfs -o loop,nodev,noexec $SQFS_CUR $PORTDIR
    retval=$?
    eend $retval
@@ -71,7 +88,7 @@ stop() {
    then
       einfo "  Syncing the tree"
       mv -f $SQFS_NEW $SQFS_OLD
-      mksquashfs $PORTDIR $SQFS_NEW -force-uid ${_UID} -force-gid ${_GID} -no-recovery 2>/dev/null
+      mksquashfs $PORTDIR $SQFS_NEW -force-uid ${_UID} -force-gid ${_GID} -comp $COMP -no-recovery 2>/dev/null
       retval=$?
       ln -sf $SQFS_NEW $SQFS_CUR
    else
