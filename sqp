@@ -31,7 +31,7 @@ depend() {
 	use local
 }
 
-if $PMANAGER="paludis"; then
+if [ "$PMANAGER" = "paludis" ] ; then
 	_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
 	_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
 else
