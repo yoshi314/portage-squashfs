@@ -14,23 +14,28 @@
 # 2006-11-28, v.0.1.5(4)
 # patched for aufs - yoshi314
 
-#source /etc/make.conf
-
-depend() {
-	use local
-}
-
-
-
-_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
-_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
-
 PORTDIR=/usr/portage
 SQFS_DIRNAME=/mnt/storage
 SQFS_CUR="$SQFS_DIRNAME/portage.sqfs"
 SQFS_NEW="$SQFS_DIRNAME/portage-current.sqfs"
 SQFS_OLD="$SQFS_DIRNAME/portage-old.sqfs"
 DEF_RW="/dev/shm/.portage-rw"
+
+PMANAGER=paludis
+FS=unionfs
+
+depend() {
+	use local
+}
+
+
+if $PMANAGER="paludis"; then
+	_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
+	_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
+else
+	_UID=$(grep ^portage /etc/passwd | cut -d\: -f3)
+	_GID=$(grep ^portage /etc/group | cut -d\: -f3)
+fi
 
 
 start() {
@@ -48,8 +53,14 @@ start() {
    fi
    [ -d $PORTAGE_RW ] || mkdir -p $PORTAGE_RW
    chmod 0750 $PORTAGE_RW
-   chown portage:paludisbuild $PORTAGE_RW
-   mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
+   chown _UID:_GID $PORTAGE_RW
+
+   if [ "$FS" = "aufs" ] ; then
+     mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
+   else
+     mount -t unionfs -o nodev,noexec,dirs=$PORTAGE_RW=rw:$PORTDIR=ro unionfs $PORTDIR 
+   fi
+
    eend $?
 }
 
@@ -70,7 +81,7 @@ stop() {
    eend $retval
 
    ebegin "Unmounting the tree"
-   umount -t aufs $PORTDIR
+   umount -t ${FS} $PORTDIR
    umount -t squashfs $PORTDIR
    rm -rf $PORTAGE_RW
    eend 0

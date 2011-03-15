@@ -3,42 +3,49 @@
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 #
-# /etc/init.d/squash_portage allows efficient compression of
-# Gentoo portage arborescence
+# /etc/init.d/squash_overlays allows efficient compression of
+# Gentoo overlays arborescence
 #
 # It requires support for the loop device and squashfs enabled in the kernel,
 # module autoloading is also *highly* recommended.
-# sys-fs/squashfs and sys-fs/aufs are necessary for read-write support.
+# sys-fs/squashfs and sys-fs/unionfs are necessary for read-write support.
 #
 # Author: Mathias Laurin <mathias_laurin@users.sourceforge.net>
 # 2006-11-28, v.0.1.5(4)
-# aufs by yoshi314
+# patched for aufs - yoshi314
 
-#source /etc/make.conf
-PORTDIR=/mnt/storage/overlays
-depend() {
-	use local
-}
-
-
-
-_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
-_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
+PORTDIR=/usr/overlays
 SQFS_DIRNAME=/mnt/storage
 SQFS_CUR="$SQFS_DIRNAME/overlays.sqfs"
 SQFS_NEW="$SQFS_DIRNAME/overlays-current.sqfs"
 SQFS_OLD="$SQFS_DIRNAME/overlays-old.sqfs"
 DEF_RW="/dev/shm/.overlays-rw"
 
+PMANAGER=paludis
+FS=unionfs
+
+depend() {
+	use local
+}
+
+
+if [ "$PMANAGER" = "paludis" ] ; then
+	_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
+	_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
+else
+	_UID=$(grep ^overlays /etc/passwd | cut -d\: -f3)
+	_GID=$(grep ^overlays /etc/group | cut -d\: -f3)
+fi
+
 
 start() {
-   ebegin "Mounting read-only squashfs image [overlays]"
+   ebegin "Mounting read-only squashfs image"
    mount -rt squashfs -o loop,nodev,noexec $SQFS_CUR $PORTDIR
    retval=$?
    eend $retval
    [ $retval -ne 0 ] && return $retval
 
-   ebegin "Mounting read-write with aufs [overlays]"
+   ebegin "Mounting read-write with unionfs"
    if [ ! $PORTAGE_RW ]
    then
       einfo "  mounted in tmpfs (RAM)"
@@ -46,20 +53,25 @@ start() {
    fi
    [ -d $PORTAGE_RW ] || mkdir -p $PORTAGE_RW
    chmod 0750 $PORTAGE_RW
-   chown portage:paludisbuild $PORTAGE_RW
-   mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
+   chown _UID:_GID $PORTAGE_RW
+
+   if [ "$FS" = "aufs" ] ; then
+     mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
+   else
+     mount -t unionfs -o nodev,noexec,dirs=$PORTAGE_RW=rw:$PORTDIR=ro unionfs $PORTDIR 
+   fi
+
    eend $?
 }
 
 stop() {
-   ebegin "Updating portage tree [overlays]"
+   ebegin "Updating overlays tree"
    [ ! $PORTAGE_RW ] && PORTAGE_RW="${DEF_RW}"
    if [ ! -z `ls -A --ignore=.wh* $PORTAGE_RW | head -n1` ]
    then
-      einfo "  Syncing the tree [overlays]"
+      einfo "  Syncing the tree"
       mv -f $SQFS_NEW $SQFS_OLD
-#      mksquashfs $PORTDIR $SQFS_NEW -force-uid $_UID -force-gid $_GID -no-recovery 2>/dev/null
-      mksquashfs $PORTDIR $SQFS_NEW -no-recovery 2>/dev/null
+      mksquashfs $PORTDIR $SQFS_NEW -force-uid ${_UID} -force-gid ${_GID} -no-recovery 2>/dev/null
       retval=$?
       ln -sf $SQFS_NEW $SQFS_CUR
    else
@@ -68,8 +80,8 @@ stop() {
    fi
    eend $retval
 
-   ebegin "Unmounting the tree [overlays]"
-   umount -t aufs  $PORTDIR
+   ebegin "Unmounting the tree"
+   umount -t ${FS} $PORTDIR
    umount -t squashfs $PORTDIR
    rm -rf $PORTAGE_RW
    eend 0
