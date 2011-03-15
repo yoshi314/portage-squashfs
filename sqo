@@ -53,7 +53,7 @@ start() {
    fi
    [ -d $PORTAGE_RW ] || mkdir -p $PORTAGE_RW
    chmod 0750 $PORTAGE_RW
-   chown _UID:_GID $PORTAGE_RW
+   chown ${_UID}:${_GID} $PORTAGE_RW
 
    if [ "$FS" = "aufs" ] ; then
      mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
