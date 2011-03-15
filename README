@@ -1,0 +1,9 @@
+This script allows to keep your /usr/portage ( or any other dir ) on squashfs image backed up by writable branch on aufs/unionfs.
+
+The repository contains two preconfigured variations for gentoo portage tree and overlays.
+
+When stop is called, the squashfs image is rebuilt from contents of merged squashfs/{aufs,unionfs} directory.
+
+TODO: 
+- test recent changes
+- move config to conf.d files
