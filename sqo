@@ -8,13 +8,12 @@
 #
 # It requires support for the loop device and squashfs enabled in the kernel,
 # module autoloading is also *highly* recommended.
-# sys-fs/squashfs and sys-fs/unionfs are necessary for read-write support.
 #
 # Author: Mathias Laurin <mathias_laurin@users.sourceforge.net>
 # 2006-11-28, v.0.1.5(4)
 # patched for aufs - yoshi314
 
-PORTDIR=/usr/overlays
+PORTDIR=/mnt/storage/overlays
 SQFS_DIRNAME=/mnt/storage
 SQFS_CUR="$SQFS_DIRNAME/overlays.sqfs"
 SQFS_NEW="$SQFS_DIRNAME/overlays-current.sqfs"
@@ -22,10 +21,11 @@ SQFS_OLD="$SQFS_DIRNAME/overlays-old.sqfs"
 DEF_RW="/dev/shm/.overlays-rw"
 
 PMANAGER=paludis
-FS=unionfs
 
 #compression: currently available are xz, lzo, gzip
+#this might fail if your mksquashfs is older and doesn't support that option
 COMP=gzip
+
 
 depend() {
 	use local
@@ -72,11 +72,7 @@ start() {
    chmod 0750 $PORTAGE_RW
    chown ${_UID}:${_GID} $PORTAGE_RW
 
-   if [ "$FS" = "aufs" ] ; then
      mount -t aufs -o br=$PORTAGE_RW=rw:$PORTDIR=ro none $PORTDIR
-   else
-     mount -t unionfs -o nodev,noexec,dirs=$PORTAGE_RW=rw:$PORTDIR=ro unionfs $PORTDIR 
-   fi
 
    eend $?
 }
@@ -98,7 +94,7 @@ stop() {
    eend $retval
 
    ebegin "Unmounting the tree"
-   umount -t ${FS} $PORTDIR
+   umount -t aufs $PORTDIR
    umount -t squashfs $PORTDIR
    rm -rf $PORTAGE_RW
    eend 0
