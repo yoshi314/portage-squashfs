@@ -35,8 +35,8 @@ if [ "$PMANAGER" = "paludis" ] ; then
 	_UID=$(grep ^paludisbuild /etc/passwd | cut -d\: -f3)
 	_GID=$(grep ^paludisbuild /etc/group | cut -d\: -f3)
 else
-	_UID=$(grep ^overlays /etc/passwd | cut -d\: -f3)
-	_GID=$(grep ^overlays /etc/group | cut -d\: -f3)
+	_UID=$(grep ^portage /etc/passwd | cut -d\: -f3)
+	_GID=$(grep ^portage /etc/group | cut -d\: -f3)
 fi
 
 
